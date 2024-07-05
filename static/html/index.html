@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Stream with Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body {
+            display: flex;  /* Flexbox 레이아웃 사용 */
+            justify-content: flex-start;  /* 콘텐츠를 왼쪽 정렬 */
+            align-items: flex-start;  /* 콘텐츠를 위쪽 정렬 */
+            height: 100vh;  /* 전체 뷰포트 높이 사용 */
+            margin: 0;  /* 기본 마진 제거 */
+            padding: 0;  /* 기본 패딩 제거 */
+        }
+        #video {
+            width: 80%;  /* 너비를 화면의 80%로 제한 */
+            max-width: 1280px;  /* 최대 너비를 1280px로 설정 */
+            height: auto;  /* 높이를 자동으로 설정하여 비율 유지 */
+            max-height: 720px;  /* 최대 높이를 720px로 설정 */
+            display: block;  /* 비디오 요소를 블록 요소로 설정 */
+        }
+        #chat {
+            width: 20%;  /* 너비를 화면의 20%로 제한 */
+            height: 100vh;  /* 전체 뷰포트 높이 사용 */
+            box-sizing: border-box;  /* 패딩과 보더를 포함한 박스 크기 계산 */
+            padding: 10px;  /* 패딩 추가 */
+            overflow-y: auto;  /* 내용이 넘칠 경우 스크롤바 표시 */
+            background-color: #f1f1f1;  /* 배경색 설정 */
+            border-left: 1px solid #ccc;  /* 왼쪽에 경계선 추가 */
+            display: flex;
+            flex-direction: column;  /* Flexbox를 사용하여 열 방향으로 정렬 */
+        }
+        #messageList {
+            flex-grow: 1;  /* 메시지 리스트가 가용 공간을 차지하도록 설정 */
+            overflow-y: auto;  /* 메시지 리스트에 스크롤바 표시 */
+        }
+        #inputArea {
+            display: flex;  /* 입력 영역을 Flexbox로 설정 */
+            flex-direction: row;  /* 입력 요소들을 가로로 정렬 */
+        }
+        #usernameInput {
+            width: 30%;  /* 사용자 이름 입력 상자의 너비를 30%로 설정 */
+            padding: 5px;  /* 패딩 추가 */
+            box-sizing: border-box;  /* 패딩과 보더를 포함한 박스 크기 계산 */
+        }
+        #messageInput {
+            width: 50%;  /* 메시지 입력 상자의 너비를 50%로 설정 */
+            padding: 5px;  /* 패딩 추가 */
+            box-sizing: border-box;  /* 패딩과 보더를 포함한 박스 크기 계산 */
+        }
+        #sendBtn {
+            width: 20%;  /* 버튼의 너비를 20%로 설정 */
+            padding: 5px;  /* 패딩 추가 */
+            box-sizing: border-box;  /* 패딩과 보더를 포함한 박스 크기 계산 */
+        }
+        .message {
+            background-color: white;  /* 메시지 배경색 설정 */
+            padding: 10px;  /* 패딩 추가 */
+            margin-bottom: 10px;  /* 아래쪽 마진 추가 */
+            border-radius: 5px;  /* 모서리를 둥글게 설정 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);  /* 그림자 추가 */
+        }
+    </style>
+    <script>
+        var serverIP = "<your_server_ip>";  // Backend 서버 IP 주소
+        var hlsUrl = 'http://' + serverIP + ':18080/hls/playlist.m3u8';
+        var wsUrl = 'ws://' + serverIP + ':18080/ws';
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var video = document.getElementById('video');
+            video.muted = true; // 자동 재생을 위해 음소거 설정
+
+            if (Hls.isSupported()) {
+                var hls = new Hls();
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    console.log("HLS manifest parsed, starting playback");
+                    video.play();
+                });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error("HLS error: ", data);
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = hlsUrl;
+                video.addEventListener('loadedmetadata', function () {
+                    console.log("Metadata loaded, starting playback");
+                    video.play();
+                });
+            } else {
+                console.error("HLS is not supported in this browser");
+            }
+
+            // 웹소켓 설정
+            var socket = new WebSocket(wsUrl);
+
+            socket.onmessage = function(event) {
+                var msg = JSON.parse(event.data);
+                var messageList = document.getElementById('messageList');
+                var messageElem = document.createElement('div');
+                messageElem.className = 'message';
+                messageElem.textContent = msg.username + ": " + msg.message;
+                messageList.appendChild(messageElem);
+                messageList.scrollTop = messageList.scrollHeight;
+            };
+
+            function sendMessage() {
+                var usernameInput = document.getElementById('usernameInput');
+                var messageInput = document.getElementById('messageInput');
+                var username = usernameInput.value.trim();
+                var message = messageInput.value.trim();
+                if (username !== "" && message !== "") {
+                    socket.send(JSON.stringify({
+                        username: username,
+                        message: message
+                    }));
+                    messageInput.value = "";
+                }
+            }
+
+            document.getElementById('sendBtn').addEventListener('click', sendMessage);
+
+            document.getElementById('messageInput').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <video id="video" controls autoplay muted></video>
+    <div id="chat">
+        <h2>Chat</h2>
+        <div id="messageList"></div>
+        <div id="inputArea">
+            <input type="text" id="usernameInput" placeholder="Username">
+            <input type="text" id="messageInput" placeholder="Enter your message...">
+            <button id="sendBtn">Send</button>
+        </div>
+    </div>
+</body>
+</html>
