@@ -3,26 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HLS Stream with Chat</title>
+    <title>HLS Stream with Chat and Upload</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body {
             display: flex;  /* Flexbox 레이아웃 사용 */
+            flex-direction: row;  /* 행 방향으로 정렬 */
             justify-content: flex-start;  /* 콘텐츠를 왼쪽 정렬 */
             align-items: flex-start;  /* 콘텐츠를 위쪽 정렬 */
             height: 100vh;  /* 전체 뷰포트 높이 사용 */
             margin: 0;  /* 기본 마진 제거 */
             padding: 0;  /* 기본 패딩 제거 */
         }
+        #videoContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80%;  /* 너비를 화면의 80%로 설정 */
+            padding: 20px;
+        }
         #video {
-            width: 80%;  /* 너비를 화면의 80%로 제한 */
+            width: 100%;  /* 너비를 100%로 설정 */
             max-width: 1280px;  /* 최대 너비를 1280px로 설정 */
             height: auto;  /* 높이를 자동으로 설정하여 비율 유지 */
             max-height: 720px;  /* 최대 높이를 720px로 설정 */
-            display: block;  /* 비디오 요소를 블록 요소로 설정 */
+        }
+        #uploadButton {
+            width: 100%;  /* 너비를 100%로 설정 */
+            max-width: 1280px;  /* 최대 너비를 1280px로 설정 */
+            height: 50px;  /* 높이를 50px로 설정 */
+            margin: 10px 0;
+            font-size: 20px;  /* 폰트 크기 설정 */
         }
         #chat {
-            width: 20%;  /* 너비를 화면의 20%로 제한 */
+            width: 20%;  /* 너비를 화면의 20%로 설정 */
             height: 100vh;  /* 전체 뷰포트 높이 사용 */
             box-sizing: border-box;  /* 패딩과 보더를 포함한 박스 크기 계산 */
             padding: 10px;  /* 패딩 추가 */
@@ -64,9 +78,12 @@
         }
     </style>
     <script>
-        var serverIP = "<your_server_ip>";  // Backend 서버 IP 주소
-        var hlsUrl = 'http://' + serverIP + ':18080/hls/playlist.m3u8';
-        var wsUrl = 'ws://' + serverIP + ':18080/ws';
+        var serverIP = "localhost";  // 여기에 실제 서버 IP 주소를 입력하세요
+        var PORT = "18080"
+        var HOST = serverIP + ':' + PORT
+        var hlsUrl = 'http://' + HOST + '/hls/playlist.m3u8';
+        var wsUrl = 'ws://' + HOST + '/ws';
+        var uploadVideoUrl = 'http://' + HOST + '/uploadVideo';
 
         document.addEventListener("DOMContentLoaded", function() {
             var video = document.getElementById('video');
@@ -127,19 +144,57 @@
                     sendMessage();
                 }
             });
+
+            // 파일 업로드 이벤트 핸들러 설정
+            document.getElementById('uploadButton').addEventListener('change', function(event) {
+                var file = event.target.files[0];
+                if (file) {
+                    var formData = new FormData();
+                    formData.append('video', file);
+
+                    fetch(uploadVideoUrl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Success:', data);
+                            // 업로드 성공 시 HLS 비디오 재로드
+                            if (Hls.isSupported()) {
+                                var hls = new Hls();
+                                hls.loadSource(hlsUrl);
+                                hls.attachMedia(video);
+                                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                    video.play();
+                                });
+                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                video.src = hlsUrl;
+                                video.addEventListener('loadedmetadata', function () {
+                                    video.play();
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                        });
+                }
+            });
         });
     </script>
 </head>
 <body>
+<div id="videoContainer">
     <video id="video" controls autoplay muted></video>
-    <div id="chat">
-        <h2>Chat</h2>
-        <div id="messageList"></div>
-        <div id="inputArea">
-            <input type="text" id="usernameInput" placeholder="Username">
-            <input type="text" id="messageInput" placeholder="Enter your message...">
-            <button id="sendBtn">Send</button>
-        </div>
+    <input type="file" id="uploadButton" accept="video/*">
+</div>
+<div id="chat">
+    <h2>Chat</h2>
+    <div id="messageList"></div>
+    <div id="inputArea">
+        <input type="text" id="usernameInput" placeholder="Username">
+        <input type="text" id="messageInput" placeholder="Enter your message...">
+        <button id="sendBtn">Send</button>
     </div>
+</div>
 </body>
 </html>
