@@ -84,30 +84,49 @@
         var hlsUrl = 'http://' + HOST + '/hls/playlist.m3u8';
         var wsUrl = 'ws://' + HOST + '/ws';
         var uploadVideoUrl = 'http://' + HOST + '/uploadVideo';
+        var currentTime = 0;
 
         document.addEventListener("DOMContentLoaded", function() {
             var video = document.getElementById('video');
-            video.muted = true; // 자동 재생을 위해 음소거 설정
+            // video.muted = true; // 자동 재생을 위해 음소거 설정
 
-            if (Hls.isSupported()) {
-                var hls = new Hls();
-                hls.loadSource(hlsUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    console.log("HLS manifest parsed, starting playback");
-                    video.play();
-                });
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    console.error("HLS error: ", data);
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = hlsUrl;
-                video.addEventListener('loadedmetadata', function () {
-                    console.log("Metadata loaded, starting playback");
-                    video.play();
-                });
-            } else {
-                console.error("HLS is not supported in this browser");
+            function setupHLS() {
+                if (Hls.isSupported()) {
+                    hls = new Hls();
+                    hls.loadSource(hlsUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                        console.log("HLS manifest parsed, starting playback from ", currentTime);
+                        video.currentTime = currentTime;  // 현재 재생 시간 설정
+                        video.play();
+                    });
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        console.error("HLS error: ", data);
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = hlsUrl;
+                    video.addEventListener('loadedmetadata', function () {
+                        console.log("Metadata loaded, starting playback from ", currentTime);
+                        video.currentTime = currentTime;  // 현재 재생 시간 설정
+                        video.play();
+                    });
+                } else {
+                    console.error("HLS is not supported in this browser");
+                }
+            }
+
+            setupHLS();
+
+            // 주기적으로 HLS 플레이리스트를 새로 로드
+            function reloadHLS() {
+                console.log("Reloading HLS playlist")
+                currentTime = video.currentTime; // 현재 재생 시간 저장
+                if (hls) {
+                    hls.loadSource(hlsUrl);
+                    video.currentTime = currentTime;  // 현재 재생 시간 설정
+                } else {
+                    setupHLS();
+                }
             }
 
             // 웹소켓 설정
@@ -146,7 +165,7 @@
             });
 
             // 파일 업로드 이벤트 핸들러 설정
-            document.getElementById('uploadButton').addEventListener('change', function(event) {
+            document.getElementById('uploadButton').addEventListener('change', async function (event) {
                 var file = event.target.files[0];
                 if (file) {
                     var formData = new FormData();
@@ -160,19 +179,20 @@
                         .then(data => {
                             console.log('Success:', data);
                             // 업로드 성공 시 HLS 비디오 재로드
-                            if (Hls.isSupported()) {
-                                var hls = new Hls();
-                                hls.loadSource(hlsUrl);
-                                hls.attachMedia(video);
-                                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                                    video.play();
-                                });
-                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                video.src = hlsUrl;
-                                video.addEventListener('loadedmetadata', function () {
-                                    video.play();
-                                });
-                            }
+                            // TODO-- 업로드 하고 프로세싱해서 HLS으로 변환하는 시간이 있으므로 바로 비디오 재로드할 경우 에러
+                            // if (Hls.isSupported()) {
+                            //     var hls = new Hls();
+                            //     hls.loadSource(hlsUrl);
+                            //     hls.attachMedia(video);
+                            //     hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                            //         video.play();
+                            //     });
+                            // } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                            //     video.src = hlsUrl;
+                            //     video.addEventListener('loadedmetadata', function () {
+                            //         video.play();
+                            //     });
+                            // }
                         })
                         .catch((error) => {
                             console.error('Error:', error);
@@ -184,7 +204,7 @@
 </head>
 <body>
 <div id="videoContainer">
-    <video id="video" controls autoplay muted></video>
+    <video id="video" controls autoplay></video>
     <input type="file" id="uploadButton" accept="video/*">
 </div>
 <div id="chat">
