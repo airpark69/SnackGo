@@ -1,23 +1,12 @@
 package handlers
 
 import (
-	"net/http"
-	"path/filepath"
+	"github.com/gofiber/fiber/v2"
 )
 
 // 파일 서버 요청을 처리하는 핸들러
-func FileServerHandler(w http.ResponseWriter, r *http.Request) {
-	LogRequest(r) // 요청 정보를 로그에 기록
+// HTML 파일이 있는 디렉토리를 설정하고, 로그를 추가합니다.
+func FileServerHandler(c *fiber.Ctx) error {
 
-	// 파일 서버 기능 수행
-	// 요청된 파일 경로 설정
-	requestedPath := filepath.Join("static/html", r.URL.Path)
-
-	//// 경로가 HTML 파일로 끝나는지 확인
-	//if !strings.HasSuffix(requestedPath, ".html") {
-	//	http.Error(w, "Forbidden", http.StatusForbidden)
-	//	return
-	//}
-
-	http.ServeFile(w, r, requestedPath)
+	return c.SendFile("static/html/index.html") // 적절한 파일 경로로 수정
 }

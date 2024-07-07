@@ -1,10 +1,8 @@
 package handlers
 
 import (
+	"github.com/gofiber/websocket/v2"
 	"log"
-	"net/http"
-
-	"github.com/gorilla/websocket"
 )
 
 // 클라이언트와의 연결을 추적
@@ -13,44 +11,39 @@ var clients = make(map[*websocket.Conn]bool)
 // 메시지 브로드캐스트 채널
 var broadcast = make(chan Message)
 
-// 업그레이드 구성을 위해 사용
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 // Message struct to hold the message data
 type Message struct {
 	Username string `json:"username"`
 	Message  string `json:"message"`
 }
 
-// 최근 30개의 메시지를 저장하는 슬라이스
+// 최근 메시지를 저장하는 슬라이스
 var messageHistory []Message
 
 // 초기 ws 연결 시 클라이언트와 소통하는 부분
-func HandleConnections(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Fatalf("Failed to upgrade to websocket: %v", err)
-	}
-	defer ws.Close()
+// 웹소켓 연결 핸들러
+func HandleConnections(c *websocket.Conn) {
+	defer func(c *websocket.Conn) {
+		err := c.Close()
+		if err != nil {
+			log.Printf("error: %v", err)
+		}
+	}(c)
 
 	// 연결된 클라이언트에 메시지 히스토리 전송
 	for _, msg := range messageHistory {
-		if err := ws.WriteJSON(msg); err != nil {
+		if err := c.WriteJSON(msg); err != nil {
 			log.Printf("error: %v", err)
 		}
 	}
-	clients[ws] = true
+	clients[c] = true
 
 	for {
 		var msg Message
-		err := ws.ReadJSON(&msg)
+		err := c.ReadJSON(&msg)
 		if err != nil {
 			log.Printf("error: %v", err)
-			delete(clients, ws)
+			delete(clients, c)
 			break
 		}
 		broadcast <- msg
@@ -73,7 +66,7 @@ func HandleMessages() {
 			err := client.WriteJSON(msg)
 			if err != nil {
 				log.Printf("error: %v", err)
-				client.Close()
+				_ = client.Close()
 				delete(clients, client)
 			}
 		}
