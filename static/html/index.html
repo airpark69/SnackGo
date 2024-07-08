@@ -84,9 +84,18 @@
         var hlsUrl = 'http://' + HOST + '/hls/playlist.m3u8';
         var wsUrl = 'ws://' + HOST + '/ws';
         var uploadVideoUrl = 'http://' + HOST + '/uploadVideo';
+        var checkModeUrl = 'http://' + HOST + '/checkMode'
         var currentTime = 0;
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", async function() {
+            await fetch(checkModeUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.mode) {
+                        document.getElementById('uploadButton').style.display = 'none';
+                    }
+                })
+                .catch(error => console.error('Error:', error));
             var video = document.getElementById('video');
             // video.muted = true; // 자동 재생을 위해 음소거 설정
 

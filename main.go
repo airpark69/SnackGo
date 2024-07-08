@@ -2,12 +2,19 @@ package main
 
 import (
 	"SnackCam/handlers"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/websocket/v2"
-	"log"
 )
+
+var mode = false // true -> 카메라 업로드를 통한 실시간 라이브 , false -> 파일 업로드를 통한 시청 방식
+var err error
 
 func main() {
 	app := fiber.New(fiber.Config{
@@ -15,6 +22,20 @@ func main() {
 	})
 	app.Use(cors.New())
 	app.Use(logger.New())
+
+	// 환경 변수 읽기
+	modeStr, exists := os.LookupEnv("MODE")
+	if !exists {
+		fmt.Println("The environment variable MODE is not set.")
+		return
+	}
+
+	// 문자열을 Boolean으로 변환
+	mode, err = strconv.ParseBool(modeStr)
+	if err != nil {
+		fmt.Printf("Error parsing MODE: %v\n", err)
+		return
+	}
 
 	// 메세지 전달용 웹소켓 실행
 	go handlers.HandleMessages()
@@ -24,15 +45,16 @@ func main() {
 
 	/////////////////////////////////////////////////////// 카메라에서 다이렉트로 전송 받는 경우
 
-	// 서버 시작 시 Gstreamer 실행
-	//if err := handlers.StartGstreamer(); err != nil {
-	//	log.Fatalf("Failed to start Gstreamer: %v", err)
-	//}
-
-	//// HLS 스트림을 수신하여 저장하는 핸들러 설정
-	//app.Post("/upload/hls", func(c *fiber.Ctx) error {
-	//	return handlers.UploadHLSHandler(c)
-	//})
+	// 서버 시작 시 Camera 업로드를 위한 ffmpeg 실행
+	if mode {
+		go handlers.StartFfmpeg()
+		// if err := handlers.StartFfmpeg(); err != nil {
+		// 	log.Fatalf("Failed to start ffmpeg: %v", err)
+		// }
+	} else {
+		// 비디오 업로드 -> HLS 변환
+		app.Post("/uploadVideo", handlers.UploadHandler)
+	}
 
 	///////////////////////////////////////////////////////
 
@@ -49,8 +71,7 @@ func main() {
 		return handlers.FileServerHandler(c)
 	})
 
-	// 비디오 업로드 -> HLS 변환
-	app.Post("/uploadVideo", handlers.UploadHandler)
+	app.Get("/checkMode", handlers.CreateCheckModeHandler(mode))
 
 	log.Println("Starting server on :18080")
 	if err := app.Listen(":18080"); err != nil {

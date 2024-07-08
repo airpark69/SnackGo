@@ -3,8 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"math"
@@ -13,9 +11,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
-var mux sync.Mutex
+var muxUploadVideo sync.Mutex
 
 const (
 	hlsDir  = "static/hls"
@@ -63,8 +64,8 @@ func UploadHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to save file")
 	}
 
-	mux.Lock()
-	defer mux.Unlock()
+	muxUploadVideo.Lock()
+	defer muxUploadVideo.Unlock()
 
 	// Convert the uploaded file to HLS format
 	//absHlsDir, err := filepath.Abs(hlsDir)
