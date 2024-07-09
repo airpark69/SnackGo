@@ -1,6 +1,7 @@
 package main
 
 import (
+	"SnackCam/database"
 	"SnackCam/handlers"
 	"fmt"
 	"log"
@@ -17,6 +18,9 @@ var mode = false // true -> 카메라 업로드를 통한 실시간 라이브 , 
 var err error
 
 func main() {
+	// Initialize database
+	database.InitDatabase()
+
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024, // 10MB
 	})
@@ -39,9 +43,11 @@ func main() {
 
 	// 메세지 전달용 웹소켓 실행
 	go handlers.HandleMessages()
+	go handlers.HandlePixelMessages()
 
 	// 웹 소켓 핸들러 설정
 	app.Get("/ws", websocket.New(handlers.HandleConnections))
+	app.Get("/wsp", websocket.New(handlers.HandlePixelConnections))
 
 	/////////////////////////////////////////////////////// 카메라에서 다이렉트로 전송 받는 경우
 

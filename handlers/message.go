@@ -1,8 +1,11 @@
 package handlers
 
 import (
-	"github.com/gofiber/websocket/v2"
+	"SnackCam/database"
+	"SnackCam/models"
 	"log"
+
+	"github.com/gofiber/websocket/v2"
 )
 
 // 클라이언트와의 연결을 추적
@@ -17,9 +20,6 @@ type Message struct {
 	Message  string `json:"message"`
 }
 
-// 최근 메시지를 저장하는 슬라이스
-var messageHistory []Message
-
 // 초기 ws 연결 시 클라이언트와 소통하는 부분
 // 웹소켓 연결 핸들러
 func HandleConnections(c *websocket.Conn) {
@@ -30,11 +30,24 @@ func HandleConnections(c *websocket.Conn) {
 		}
 	}(c)
 
-	// 연결된 클라이언트에 메시지 히스토리 전송
-	for _, msg := range messageHistory {
-		if err := c.WriteJSON(msg); err != nil {
-			log.Printf("error: %v", err)
+	var msgs []models.Message
+	result := database.DB.Order("created_at desc").Limit(50).Find(&msgs) // 최근 50개만 읽어옴
+	if result.Error != nil {
+		log.Printf("50 Message Read error: %v", result.Error)
+	}
+
+	// 처음 접속 시 최근 50개 메세지 전송
+	// api 메세지 모델로 변환 후 하나로 저장
+	apiMessages := make([]Message, len(msgs))
+	for i, msgModel := range msgs {
+		apiMessages[i] = Message{
+			Username: msgModel.UserName,
+			Message:  msgModel.Message,
 		}
+	}
+	// 한 번에 전송
+	if err := c.WriteJSON(apiMessages); err != nil {
+		log.Printf("error: %v", err)
 	}
 	clients[c] = true
 
@@ -55,12 +68,9 @@ func HandleMessages() {
 	for {
 		msg := <-broadcast
 
-		// 메시지 히스토리에 추가하고 30개로 제한
-		messageHistory = append(messageHistory, msg)
-
-		if len(messageHistory) > 30 {
-			messageHistory = messageHistory[1:]
-		}
+		log.Println(msg)
+		// 메세지 DB에 저장
+		createMessage(msg)
 
 		for client := range clients {
 			err := client.WriteJSON(msg)
@@ -71,4 +81,12 @@ func HandleMessages() {
 			}
 		}
 	}
+}
+
+func createMessage(msg Message) {
+	message := new(models.Message)
+	message.UserName = msg.Username
+	message.Message = msg.Message
+
+	database.DB.Create(&message)
 }

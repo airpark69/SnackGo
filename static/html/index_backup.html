@@ -37,32 +37,17 @@
         #uploadButton {
             height: 50px;
         }
-        #pixelBoardContainer {
-            display: flex;
-            width: 100%;
-        }
         #pixelBoard {
             display: none;
             flex-wrap: wrap;
             height: 500px;
-            width: 80%;
+            width: 100%;
             background-color: #ffffff;
         }
         .pixel {
             width: 10px;
             height: 10px;
             border: 1px solid #ddd;
-        }
-        #colorPalette {
-            display: flex;
-            flex-direction: column;
-            margin-left: 20px;
-        }
-        .colorOption {
-            width: 30px;
-            height: 30px;
-            margin-bottom: 10px;
-            cursor: pointer;
         }
         #chat {
             width: 20%;
@@ -125,7 +110,6 @@
         var uploadVideoUrl = 'http://' + HOST + '/uploadVideo';
         var checkModeUrl = 'http://' + HOST + '/checkMode'
         var currentTime = 0;
-        var selectedColor = '#000000';
 
         document.addEventListener("DOMContentLoaded", async function() {
             await fetch(checkModeUrl)
@@ -181,24 +165,12 @@
             var socket = new WebSocket(wsUrl);
 
             socket.onmessage = function(event) {
-                var data = JSON.parse(event.data);
+                var msg = JSON.parse(event.data);
                 var messageList = document.getElementById('messageList');
-                if (Array.isArray(data)) {
-                    // 데이터가 배열
-                    data.forEach(function(msg) {
-                        var messageElem = document.createElement('div');
-                        messageElem.className = 'message';
-                        messageElem.textContent = msg.username + ": " + msg.message;
-                        messageList.appendChild(messageElem);
-                    });
-                } else {
-                    // 데이터가 단일 메시지
-                    var messageElem = document.createElement('div');
-                    messageElem.className = 'message';
-                    messageElem.textContent = data.username + ": " + data.message;
-                    messageList.appendChild(messageElem);
-                }
-
+                var messageElem = document.createElement('div');
+                messageElem.className = 'message';
+                messageElem.textContent = msg.username + ": " + msg.message;
+                messageList.appendChild(messageElem);
                 messageList.scrollTop = messageList.scrollHeight;
             };
 
@@ -263,8 +235,9 @@
                             pixel.className = "pixel";
                             pixel.id = `pixel-${i}-${j}`;
                             pixel.addEventListener("click", () => {
-                                pixel.style.backgroundColor = selectedColor;
-                                wsp.send(JSON.stringify({ id: pixel.id, color: selectedColor }));
+                                const color = prompt("Enter color:");
+                                pixel.style.backgroundColor = color;
+                                wsp.send(JSON.stringify({ id: pixel.id, color: color }));
                             });
                             board.appendChild(pixel);
                         }
@@ -272,22 +245,7 @@
                 }
             }
 
-            function createColorPalette() {
-                const colors = ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF'];
-                const palette = document.getElementById("colorPalette");
-                colors.forEach(color => {
-                    const colorOption = document.createElement("div");
-                    colorOption.className = "colorOption";
-                    colorOption.style.backgroundColor = color;
-                    colorOption.addEventListener("click", () => {
-                        selectedColor = color;
-                    });
-                    palette.appendChild(colorOption);
-                });
-            }
-
             createPixelBoard();
-            createColorPalette();
         });
     </script>
 </head>
@@ -297,10 +255,7 @@
         <div id="videoContainer">
             <video id="video" controls autoplay></video>
             <input type="file" id="uploadButton" class="shared-style" accept="video/*">
-            <div id="pixelBoardContainer">
-                <div id="pixelBoard" class="shared-style"></div>
-                <div id="colorPalette"></div>
-            </div>
+            <div id="pixelBoard" class="shared-style"></div>
         </div>
     </div>
     <div id="chat">
