@@ -68,7 +68,6 @@ func HandleMessages() {
 	for {
 		msg := <-broadcast
 
-		log.Println(msg)
 		// 메세지 DB에 저장
 		createMessage(msg)
 
