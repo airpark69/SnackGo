@@ -23,3 +23,9 @@ go.work.sum
 
 # hls file
 /static/hls
+
+# SQLite
+/data
+
+# tmp
+/tmp
