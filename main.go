@@ -43,23 +43,22 @@ func main() {
 
 	// 메세지 전달용 웹소켓 실행
 	go handlers.HandleMessages()
-	go handlers.HandlePixelMessages()
 
 	// 웹 소켓 핸들러 설정
 	app.Get("/ws", websocket.New(handlers.HandleConnections))
-	app.Get("/wsp", websocket.New(handlers.HandlePixelConnections))
 
 	/////////////////////////////////////////////////////// 카메라에서 다이렉트로 전송 받는 경우
 
-	// 서버 시작 시 Camera 업로드를 위한 ffmpeg 실행
 	if mode {
+		// 서버 시작 시 Camera 업로드를 위한 ffmpeg 실행
 		go handlers.StartFfmpeg()
-		// if err := handlers.StartFfmpeg(); err != nil {
-		// 	log.Fatalf("Failed to start ffmpeg: %v", err)
-		// }
+		// 픽셀 보드 관련 소켓 연결 설정
+		go handlers.HandlePixelMessages()
+		app.Get("/wsp", websocket.New(handlers.HandlePixelConnections))
 	} else {
 		// 비디오 업로드 -> HLS 변환
 		app.Post("/uploadVideo", handlers.UploadHandler)
+
 	}
 
 	///////////////////////////////////////////////////////

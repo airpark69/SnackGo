@@ -40,21 +40,24 @@
         #pixelBoardContainer {
             display: flex;
             width: 100%;
+            justify-content: center;
+            align-items: flex-start;
         }
         #pixelBoard {
             display: none;
             flex-wrap: wrap;
+            width: 500px;
             height: 500px;
-            width: 80%;
             background-color: #ffffff;
         }
         .pixel {
-            width: 10px;
-            height: 10px;
+            width: 5px;
+            height: 5px;
             border: 1px solid #ddd;
+            box-sizing: border-box;  /* Include border in element's total width and height */
         }
         #colorPalette {
-            display: flex;
+            display: none;
             flex-direction: column;
             margin-left: 20px;
         }
@@ -116,9 +119,19 @@
         }
     </style>
     <script>
-        var serverIP = "localhost";  // 여기에 실제 서버 IP 주소를 입력하세요
-        var PORT = "18080"
-        var HOST = serverIP + ':' + PORT
+        function getFullHost() {
+            // 현재 url 기준으로 호스트 전체를 받아오는 함수
+            var hostname = window.location.hostname; // 호스트 이름 (도메인)
+            var port = window.location.port; // 포트 번호
+
+            // 포트 번호가 있으면 도메인과 포트 번호를 결합하여 반환, 없으면 도메인만 반환
+            if (port) {
+                return hostname + ':' + port;
+            } else {
+                return hostname;
+            }
+        }
+        var HOST = getFullHost()
         var hlsUrl = 'http://' + HOST + '/hls/playlist.m3u8';
         var wsUrl = 'ws://' + HOST + '/ws';
         var wspUrl = 'ws://' + HOST + '/wsp';
@@ -134,6 +147,16 @@
                     if (data.mode) {
                         document.getElementById('uploadButton').style.display = 'none';
                         document.getElementById('pixelBoard').style.display = 'flex';
+                        document.getElementById('colorPalette').style.display = 'flex';
+                        const wsp = new WebSocket(wspUrl);
+
+                        wsp.onmessage = function(event) {
+                            const data = JSON.parse(event.data);
+                            const pixel = document.getElementById(data.id);
+                            if (pixel) {
+                                pixel.style.backgroundColor = data.color;
+                            }
+                        };
                     }
                 })
                 .catch(error => console.error('Error:', error));
@@ -216,15 +239,7 @@
                 }
             }
 
-            const wsp = new WebSocket(wspUrl);
-
-            wsp.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                const pixel = document.getElementById(data.id);
-                if (pixel) {
-                    pixel.style.backgroundColor = data.color;
-                }
-            };
+            
 
             document.getElementById('sendBtn').addEventListener('click', sendMessage);
 

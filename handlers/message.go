@@ -31,7 +31,7 @@ func HandleConnections(c *websocket.Conn) {
 	}(c)
 
 	var msgs []models.Message
-	result := database.DB.Order("created_at desc").Limit(50).Find(&msgs) // 최근 50개만 읽어옴
+	result := database.DB.Order("created_at desc").Limit(50).Find(&msgs) // 최근 50개만 읽어옴,
 	if result.Error != nil {
 		log.Printf("50 Message Read error: %v", result.Error)
 	}
@@ -40,7 +40,7 @@ func HandleConnections(c *websocket.Conn) {
 	// api 메세지 모델로 변환 후 하나로 저장
 	apiMessages := make([]Message, len(msgs))
 	for i, msgModel := range msgs {
-		apiMessages[i] = Message{
+		apiMessages[len(msgs)-1-i] = Message{ // 앞에서부터 읽어서 위로 올려보내는 구조라서 가장 최근의 메세지는 가장 마지막에 들어가야함
 			Username: msgModel.UserName,
 			Message:  msgModel.Message,
 		}
